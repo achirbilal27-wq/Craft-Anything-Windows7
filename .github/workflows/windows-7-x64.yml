@@ -1,0 +1,75 @@
+name: Windows 7 x64 compatibility build
+
+on:
+  push:
+    branches:
+      - feature/windows7-x64
+    paths:
+      - ".github/workflows/windows-7-x64.yml"
+      - "apps/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "packaging/windows/portable.txt"
+  pull_request:
+    paths:
+      - ".github/workflows/windows-7-x64.yml"
+      - "apps/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "packaging/windows/portable.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-7-x64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build x64 Windows binaries
+    runs-on: windows-2022
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Show toolchain
+        run: |
+          rustc --version
+          cargo --version
+          rustup target list --installed
+        shell: pwsh
+
+      - name: Build GUI and CLI
+        run: cargo build --locked --release --target x86_64-pc-windows-msvc --package craft-anything --package craft-anything-cli
+        shell: pwsh
+        env:
+          CRAFT_ANYTHING_REQUIRE_WINRES: "1"
+          RUSTFLAGS: "-C target-feature=+crt-static"
+
+      - name: Stage portable distribution
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dist = "dist/Craft-Anything-Windows7-x64"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Copy-Item "target/x86_64-pc-windows-msvc/release/craft-anything.exe" $dist
+          Copy-Item "target/x86_64-pc-windows-msvc/release/craft-anything-cli.exe" $dist
+          Copy-Item "packaging/windows/portable.txt" $dist
+          Compress-Archive -Path "$dist/*" -DestinationPath "dist/Craft-Anything-Windows7-x64.zip" -Force
+        shell: pwsh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Craft-Anything-Windows7-x64
+          path: dist/Craft-Anything-Windows7-x64.zip
+          if-no-files-found: error
+          retention-days: 14
