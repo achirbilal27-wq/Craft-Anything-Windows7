@@ -72,6 +72,14 @@ jobs:
           Copy-Item "target/x86_64-win7-windows-msvc/release/craft-anything-cli.exe" $dist
           Copy-Item "packaging/windows/portable.txt" $dist
 
+      - name: Redirect legacy COM imports to ole32.dll
+        shell: pwsh
+        run: |
+          .\\scripts\\patch-win7-com-imports.ps1 -BinaryPath @(
+            "dist/Craft-Anything-Windows7-x64/craft-anything.exe",
+            "dist/Craft-Anything-Windows7-x64/craft-anything-cli.exe"
+          )
+
       - name: Audit Windows 7 import compatibility
         shell: pwsh
         run: |

@@ -17,6 +17,7 @@ if (-not $dumpbin -or -not (Test-Path -LiteralPath $dumpbin)) {
 }
 
 $forbidden = @(
+    @{ Pattern = '(?i)\\bcombase\\.dll\\b'; Reason = "COMBASE.DLL is not present on Windows 7; COM imports must target OLE32.DLL" },
     @{ Pattern = '(?i)\bapi-ms-win-core-synch-l1-2-0\.dll\b'; Reason = "Windows 8 synchronization API-set DLL" },
     @{ Pattern = '(?i)\bbcryptprimitives\.dll\b'; Reason = "Windows 8 ProcessPrng provider DLL" },
     @{ Pattern = '(?i)\bWaitOnAddress\b'; Reason = "WaitOnAddress requires Windows 8" },
