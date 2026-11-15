@@ -75,7 +75,7 @@ jobs:
       - name: Redirect legacy COM imports to ole32.dll
         shell: pwsh
         run: |
-          .\\scripts\\patch-win7-com-imports.ps1 -BinaryPath @(
+          .\scripts\patch-win7-com-imports.ps1 -BinaryPath @(
             "dist/Craft-Anything-Windows7-x64/craft-anything.exe",
             "dist/Craft-Anything-Windows7-x64/craft-anything-cli.exe"
           )

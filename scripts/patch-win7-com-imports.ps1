@@ -72,7 +72,7 @@ foreach ($path in $BinaryPath) {
                 if ($entryOffset + 8 -gt $bytes.Length) { throw "Import thunk exceeds file bounds: $path" }
                 $entry = [BitConverter]::ToUInt64($bytes, $entryOffset)
                 if ($entry -eq 0) { break }
-                if (($entry -band 0x8000000000000000) -ne 0) { throw "Ordinal import from combase.dll is not approved for redirection: $path" }
+                if (($entry -shr 63) -ne 0) { throw "Ordinal import from combase.dll is not approved for redirection: $path" }
                 $ibn = Convert-RvaToOffset ([uint32]$entry) $bytes $sectionTable $sectionCount
                 $symbol = Read-AsciiZ $bytes ($ibn + 2)
                 if ($symbol -notin $allowedComExports) { throw "Unexpected combase.dll import '$symbol' in $path; refusing to redirect." }
