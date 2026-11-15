@@ -74,10 +74,11 @@ jobs:
 
       - name: Audit Windows 7 import compatibility
         shell: pwsh
-        run: .\scripts\audit-windows7-imports.ps1 -BinaryPath @(
-          "dist/Craft-Anything-Windows7-x64/craft-anything.exe",
-          "dist/Craft-Anything-Windows7-x64/craft-anything-cli.exe"
-        )
+        run: |
+          .\scripts\audit-windows7-imports.ps1 -BinaryPath @(
+            "dist/Craft-Anything-Windows7-x64/craft-anything.exe",
+            "dist/Craft-Anything-Windows7-x64/craft-anything-cli.exe"
+          )
 
       - name: Package portable distribution
         shell: pwsh
