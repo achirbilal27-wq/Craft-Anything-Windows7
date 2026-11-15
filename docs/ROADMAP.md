@@ -714,6 +714,9 @@ yet, and the quick start is how every new person begins.
 - [ ] A live extraction run with Kimi K3.1 Pro (needs the person's OpenRouter key)
 
 **A second computer or another system:**
+- [ ] Windows 7 SP1 x64 compatibility: build with the dedicated Win7 Rust target, audit PE imports, and live-check GUI and CLI on the Dell Inspiron test machine
+      — claimed: ChatGPT, branch feature/windows7-x64
+
 - [ ] A live run of a project copied between two real computers with Claude Code (#451, #452); done
       on one Mac with a second `CLAUDE_CONFIG_DIR` standing in for the other computer (STATUS.md)
 - [ ] Ghidra setup tried for real on Linux and macOS (the Java pins were checked by tests only)
