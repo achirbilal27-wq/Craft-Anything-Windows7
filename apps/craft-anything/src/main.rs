@@ -288,7 +288,11 @@ fn pick_adapter(adapters: &[eframe::wgpu::Adapter], surface: Option<&eframe::wgp
 /// only reached once DX12 has failed.
 #[cfg(windows)]
 fn windows_backends(from_env: Option<eframe::wgpu::Backends>, renderer: Option<renderer::Renderer>) -> eframe::wgpu::Backends {
-    from_env.or(renderer.map(renderer::Renderer::backends)).unwrap_or(eframe::wgpu::Backends::DX12)
+    #[cfg(craft_anything_win7)]
+    let default_backend = eframe::wgpu::Backends::GL;
+    #[cfg(not(craft_anything_win7))]
+    let default_backend = eframe::wgpu::Backends::DX12;
+    from_env.or(renderer.map(renderer::Renderer::backends)).unwrap_or(default_backend)
 }
 
 /// Windows: the renderer for this start (see [`renderer`]), remembered before the window is asked
@@ -351,7 +355,7 @@ fn adapter_rank(backend: eframe::wgpu::Backend, device: eframe::wgpu::DeviceType
     (is_gl, speed, dx12_before_vulkan)
 }
 
-#[cfg(all(test, windows))]
+#[cfg(all(test, windows, not(craft_anything_win7)))]
 mod tests {
     use super::*;
     use eframe::wgpu::{Backend as B, DeviceType as T};
@@ -386,6 +390,22 @@ mod tests {
         assert_eq!(windows_backends(None, Some(Renderer::Vulkan)), Backends::VULKAN);
         assert_eq!(windows_backends(None, Some(Renderer::Gl)), Backends::GL);
         assert_eq!(windows_backends(Some(Backends::DX12), Some(Renderer::Gl)), Backends::DX12, "the variable wins");
+    }
+}
+
+#[cfg(all(test, windows, craft_anything_win7))]
+mod windows7_renderer_tests {
+    use super::*;
+    use eframe::wgpu::Backends;
+    use renderer::Renderer;
+
+    #[test]
+    fn windows_7_defaults_to_opengl_and_respects_backend_overrides() {
+        assert_eq!(windows_backends(None, None), Backends::GL);
+        assert_eq!(windows_backends(None, Some(Renderer::Gl)), Backends::GL);
+        assert_eq!(windows_backends(None, Some(Renderer::Vulkan)), Backends::VULKAN);
+        assert_eq!(windows_backends(Some(Backends::VULKAN), None), Backends::VULKAN);
+        assert_eq!(windows_backends(Some(Backends::DX12), Some(Renderer::Gl)), Backends::DX12);
     }
 }
 

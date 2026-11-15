@@ -8,6 +8,7 @@ on:
       - ".github/workflows/windows-7-x64.yml"
       - "apps/**"
       - "crates/**"
+      - "scripts/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "packaging/windows/portable.txt"
@@ -16,6 +17,7 @@ on:
       - ".github/workflows/windows-7-x64.yml"
       - "apps/**"
       - "crates/**"
+      - "scripts/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "packaging/windows/portable.txt"
@@ -30,41 +32,58 @@ concurrency:
 
 jobs:
   build:
-    name: Build x64 Windows binaries
+    name: Build Windows 7 x64 binaries
     runs-on: windows-2022
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Install stable Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install nightly Rust and Win7 standard-library sources
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: x86_64-pc-windows-msvc
+          components: rust-src
 
-      - name: Show toolchain
+      - name: Verify Win7 target and toolchain
+        shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           rustc --version
           cargo --version
-          rustup target list --installed
-        shell: pwsh
+          $target = rustc --print target-list | Where-Object { $_ -eq "x86_64-win7-windows-msvc" }
+          if (-not $target) {
+            throw "This nightly compiler does not expose x86_64-win7-windows-msvc."
+          }
+          Write-Host "Win7 target available: $target"
 
-      - name: Build GUI and CLI
-        run: cargo build --locked --release --target x86_64-pc-windows-msvc --package craft-anything --package craft-anything-cli
+      - name: Build GUI and CLI for Windows 7
         shell: pwsh
+        run: cargo -Z build-std=std,panic_unwind build --locked --release --target x86_64-win7-windows-msvc --package craft-anything --package craft-anything-cli
         env:
           CRAFT_ANYTHING_REQUIRE_WINRES: "1"
           RUSTFLAGS: "-C target-feature=+crt-static"
 
-      - name: Stage portable distribution
+      - name: Stage portable binaries
+        shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $dist = "dist/Craft-Anything-Windows7-x64"
           New-Item -ItemType Directory -Force -Path $dist | Out-Null
-          Copy-Item "target/x86_64-pc-windows-msvc/release/craft-anything.exe" $dist
-          Copy-Item "target/x86_64-pc-windows-msvc/release/craft-anything-cli.exe" $dist
+          Copy-Item "target/x86_64-win7-windows-msvc/release/craft-anything.exe" $dist
+          Copy-Item "target/x86_64-win7-windows-msvc/release/craft-anything-cli.exe" $dist
           Copy-Item "packaging/windows/portable.txt" $dist
-          Compress-Archive -Path "$dist/*" -DestinationPath "dist/Craft-Anything-Windows7-x64.zip" -Force
+
+      - name: Audit Windows 7 import compatibility
         shell: pwsh
+        run: .\scripts\audit-windows7-imports.ps1 -BinaryPath @(
+          "dist/Craft-Anything-Windows7-x64/craft-anything.exe",
+          "dist/Craft-Anything-Windows7-x64/craft-anything-cli.exe"
+        )
+
+      - name: Package portable distribution
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Compress-Archive -Path "dist/Craft-Anything-Windows7-x64/*" -DestinationPath "dist/Craft-Anything-Windows7-x64.zip" -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

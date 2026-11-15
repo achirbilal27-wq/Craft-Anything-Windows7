@@ -16,6 +16,11 @@ const MANIFEST: &str = r#"<assembly xmlns="urn:schemas-microsoft-com:asm.v1" man
 </assembly>"#;
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(craft_anything_win7)");
+    println!("cargo:rerun-if-env-changed=TARGET");
+    if std::env::var("TARGET").as_deref() == Ok("x86_64-win7-windows-msvc") {
+        println!("cargo:rustc-cfg=craft_anything_win7");
+    }
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../../assets/app-icon/craft-anything.ico");
     println!("cargo:rerun-if-env-changed=CRAFT_ANYTHING_REQUIRE_WINRES");

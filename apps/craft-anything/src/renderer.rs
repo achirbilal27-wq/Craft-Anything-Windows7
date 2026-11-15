@@ -34,8 +34,13 @@ pub enum Renderer {
     Gl,
 }
 
-/// The order they are tried in.
+/// Normal Windows renderer order.
+#[cfg(not(craft_anything_win7))]
 const CHAIN: [Renderer; 4] = [Renderer::Dx12, Renderer::Warp, Renderer::Vulkan, Renderer::Gl];
+
+/// Windows 7 has no Direct3D 12 runtime; start with the legacy OpenGL driver instead.
+#[cfg(craft_anything_win7)]
+const CHAIN: [Renderer; 2] = [Renderer::Gl, Renderer::Vulkan];
 
 impl Renderer {
     pub fn name(self) -> &'static str {
@@ -88,8 +93,9 @@ impl Renderer {
 /// opened its window. After the last there's nothing new to try, so it starts over from DX12 (the
 /// driver may have been updated meanwhile) rather than staying on one that failed.
 pub fn choose(remembered: Option<Renderer>, last_start_failed: bool) -> Renderer {
-    let current = remembered.unwrap_or(Renderer::Dx12);
-    if last_start_failed { current.next().unwrap_or(Renderer::Dx12) } else { current }
+    let first = CHAIN[0];
+    let current = remembered.unwrap_or(first);
+    if last_start_failed { current.next().unwrap_or(first) } else { current }
 }
 
 /// Whether a start that failed before its window should start again at once with the next
@@ -137,24 +143,25 @@ pub fn remember(dir: &Path, app_version: &str, renderer: Renderer) {
 mod tests {
     use super::*;
 
-    /// #794: DX12 and WARP both refused egui's pipeline, Vulkan drew. Each failed start moves on one
-    /// step, a start that opened its window stays where it is, and after OpenGL it starts over.
+    /// Each failed start moves to the next backend; after the last, the first is retried.
+    /// Win7 uses OpenGL -> Vulkan; normal Windows keeps DX12 -> WARP -> Vulkan -> OpenGL.
     #[test]
     fn each_failed_start_tries_the_next_renderer_and_a_working_one_is_kept() {
-        assert_eq!(choose(None, false), Renderer::Dx12, "a first start draws the usual way");
-        assert_eq!(choose(None, true), Renderer::Warp, "the old fallback is still the first retry");
-        assert_eq!(choose(Some(Renderer::Warp), true), Renderer::Vulkan);
-        assert_eq!(choose(Some(Renderer::Vulkan), true), Renderer::Gl);
-        assert_eq!(choose(Some(Renderer::Gl), true), Renderer::Dx12, "after the last, start over");
-        assert_eq!(choose(Some(Renderer::Vulkan), false), Renderer::Vulkan, "one that worked is kept");
+        assert_eq!(choose(None, false), CHAIN[0], "the first backend is the default");
+        for pair in CHAIN.windows(2) {
+            assert_eq!(choose(Some(pair[0]), true), pair[1]);
+        }
+        let last = CHAIN.last().copied().unwrap_or(CHAIN[0]);
+        assert_eq!(choose(Some(last), true), CHAIN[0], "after the last, start over");
+        assert_eq!(choose(Some(CHAIN[0]), false), CHAIN[0], "a working backend is kept");
     }
 
     #[test]
     fn only_a_graphics_error_starts_again_and_never_past_the_last() {
         let text = "internal error before the window was shown: wgpu error: Validation Error\n\nCaused by:\n  In Device::create_render_pipeline, label = 'egui_pipeline'";
-        assert_eq!(relaunch_with(Renderer::Dx12, text), Some(Renderer::Warp));
-        assert_eq!(relaunch_with(Renderer::Warp, text), Some(Renderer::Vulkan));
-        assert_eq!(relaunch_with(Renderer::Gl, text), None, "nothing left: the dialog says why");
+        assert_eq!(relaunch_with(CHAIN[0], text), CHAIN.get(1).copied());
+        let last = CHAIN.last().copied().unwrap_or(CHAIN[0]);
+        assert_eq!(relaunch_with(last, text), None, "nothing left: the dialog says why");
         assert_eq!(relaunch_with(Renderer::Dx12, "internal error before the window was shown: settings"), None);
     }
 
@@ -189,6 +196,7 @@ mod tests {
         for r in CHAIN {
             assert_eq!(Renderer::from_name(r.name()), Some(r));
         }
-        assert_eq!(Renderer::Gl.next(), None);
+        let last = CHAIN.last().copied().unwrap_or(CHAIN[0]);
+        assert_eq!(last.next(), None);
     }
 }
